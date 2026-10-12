@@ -1,4 +1,4 @@
-export const pct = (v, digits = 1) => `${(v * 100).toFixed(digits)}%`;
+﻿export const pct = (v, digits = 1) => `${(v * 100).toFixed(digits)}%`;
 
 export const dateTime = (iso) =>
   new Date(iso).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -14,6 +14,6 @@ export const bytes = (n) => {
 export const RISK_TEXT = {
   none: 'No signs of manipulation',
   low: 'Minor irregularities',
-  medium: 'Likely manipulated',
+  medium: 'Signs of manipulation',
   high: 'Strong evidence of manipulation',
 };

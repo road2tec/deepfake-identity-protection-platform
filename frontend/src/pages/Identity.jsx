@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { api, uploadForm } from '../api';
 import { useAuth } from '../auth';
 import FileDrop from '../components/FileDrop';
+import Icon from '../components/Icon';
+import { Notice, SkeletonRows, useUI } from '../components/ui';
 import { dateTime } from '../format';
 
 export default function Identity() {
   const { refresh } = useAuth();
+  const { confirm, notify } = useUI();
   const [identity, setIdentity] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [replacing, setReplacing] = useState(false);
 
   useEffect(() => {
@@ -19,10 +21,9 @@ export default function Identity() {
   const enrol = async (file) => {
     setBusy(true);
     setError('');
-    setMessage('');
     try {
       setIdentity(await api('/api/identity', { method: 'POST', form: uploadForm(file) }));
-      setMessage('Reference face saved. New scans will be checked against it.');
+      notify('Reference face saved. New scans will be checked against it.');
       setReplacing(false);
       refresh();
     } catch (e) {
@@ -33,13 +34,17 @@ export default function Identity() {
   };
 
   const remove = async () => {
-    if (!window.confirm('Remove your protected identity? Future scans will no longer be checked for your face.')) return;
+    const ok = await confirm({
+      title: 'Remove protected identity?',
+      message: 'Future scans will no longer be checked for your face. You can enrol again at any time.',
+      confirmText: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     setIdentity(await api('/api/identity', { method: 'DELETE' }));
-    setMessage('Protected identity removed.');
+    notify('Protected identity removed');
     refresh();
   };
-
-  if (!identity) return error ? <div className="notice notice-error">{error}</div> : <div className="empty">Loading...</div>;
 
   return (
     <>
@@ -50,66 +55,69 @@ export default function Identity() {
         </div>
       </div>
 
-      {error && <div className="notice notice-error">{error}</div>}
-      {message && <div className="notice notice-ok">{message}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
 
       <div className="grid-2">
         <div className="panel">
           <div className="panel-head">
             <h2>Status</h2>
-            <span className={`badge ${identity.enrolled ? 'badge-real' : 'badge-warn'}`}>
-              {identity.enrolled ? 'Protected' : 'Not enrolled'}
-            </span>
-          </div>
-          <div className="panel-pad">
-            {identity.enrolled && !replacing ? (
-              <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <img className="identity-photo" src={identity.photo} alt="Your enrolled face" />
-                <div>
-                  <table className="kv">
-                    <tbody>
-                      <tr><th>Enrolled</th><td>{dateTime(identity.enrolled_at)}</td></tr>
-                      <tr><th>Detector score</th><td>{identity.face_score}</td></tr>
-                      <tr><th>Stored as</th><td>128-d face embedding</td></tr>
-                    </tbody>
-                  </table>
-                  <div style={{ display: 'flex', gap: '.5rem', marginTop: '1rem' }}>
-                    <button className="btn" onClick={() => setReplacing(true)}>Replace photo</button>
-                    <button className="btn btn-danger" onClick={remove}>Remove</button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                {busy ? (
-                  <div className="empty"><span className="spinner" /> Checking photo...</div>
-                ) : (
-                  <FileDrop onFile={enrol} label="Drop a photo of your face or click to choose" />
-                )}
-                {replacing && (
-                  <button className="btn-link" style={{ marginTop: '.75rem' }} onClick={() => setReplacing(false)}>
-                    Cancel
-                  </button>
-                )}
-              </>
+            {identity && (
+              <span className={`badge ${identity.enrolled ? 'badge-real' : 'badge-warn'}`}>
+                {identity.enrolled ? 'Protected' : 'Not enrolled'}
+              </span>
             )}
           </div>
+          {!identity ? (
+            <SkeletonRows rows={2} />
+          ) : (
+            <div className="panel-pad">
+              {identity.enrolled && !replacing ? (
+                <div className="id-card">
+                  <div className="id-photo">
+                    <img src={identity.photo} alt="Your enrolled face" />
+                    <span className="shield"><Icon name="shieldCheck" /></span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <table className="kv">
+                      <tbody>
+                        <tr><th>Enrolled</th><td>{dateTime(identity.enrolled_at)}</td></tr>
+                        <tr><th>Detector score</th><td className="num-font">{identity.face_score}</td></tr>
+                        <tr><th>Stored as</th><td>128-d face embedding</td></tr>
+                      </tbody>
+                    </table>
+                    <div style={{ display: 'flex', gap: '.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                      <button className="btn btn-sm" onClick={() => setReplacing(true)}><Icon name="refresh" /> Replace photo</button>
+                      <button className="btn btn-sm btn-danger" onClick={remove}><Icon name="trash" /> Remove</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {busy ? (
+                    <div className="empty"><span className="spinner" style={{ width: 22, height: 22 }} /><p style={{ marginTop: '.8rem' }}>Checking photo and extracting your face</p></div>
+                  ) : (
+                    <FileDrop onFile={enrol} label="Drop a photo of your face, or browse" />
+                  )}
+                  {replacing && !busy && (
+                    <button className="btn-link" style={{ marginTop: '.75rem' }} onClick={() => setReplacing(false)}>Cancel</button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="panel panel-pad">
-          <h2>How it works</h2>
-          <ol style={{ paddingLeft: '1.1rem', margin: '0 0 1rem' }}>
-            <li>Upload one clear, front-facing photo with only you in it.</li>
-            <li>The face is located and converted into a numeric embedding (SFace model).</li>
-            <li>Every image you scan is searched for faces, and each one is compared with your embedding.</li>
-            <li>If your face is found in an image classified as fake, an alert is raised.</li>
-          </ol>
-          <h3>Photo tips</h3>
-          <ul className="muted" style={{ paddingLeft: '1.1rem', margin: 0 }}>
-            <li>Good, even lighting; no sunglasses or masks.</li>
-            <li>Face should fill a reasonable part of the frame.</li>
-            <li>You can replace the photo at any time.</li>
+          <h2 style={{ marginBottom: '1rem' }}>How it works</h2>
+          <ul className="howto">
+            <li><b>1</b><span>Upload one clear, front-facing photo with only you in it.</span></li>
+            <li><b>2</b><span>Your face is located and converted into a numeric embedding with the SFace model.</span></li>
+            <li><b>3</b><span>Every image you scan is searched for faces, and each one is compared with your embedding.</span></li>
+            <li><b>4</b><span>If your face is found in an image classified as fake, a high-severity alert is raised.</span></li>
           </ul>
+          <div style={{ marginTop: '1.4rem' }}>
+            <Notice tone="info">Use good, even lighting. Avoid sunglasses, masks and group photos.</Notice>
+          </div>
         </div>
       </div>
     </>

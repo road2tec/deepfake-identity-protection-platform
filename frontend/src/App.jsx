@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { RequireAuth } from './auth';
+import { RequireAdmin, RequireAuth } from './auth';
 import AppLayout from './components/AppLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -11,6 +11,9 @@ import ScanDetail from './pages/ScanDetail';
 import Identity from './pages/Identity';
 import Alerts from './pages/Alerts';
 import Account from './pages/Account';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminScans from './pages/admin/AdminScans';
 
 export default function App() {
   return (
@@ -33,6 +36,9 @@ export default function App() {
         <Route path="identity" element={<Identity />} />
         <Route path="alerts" element={<Alerts />} />
         <Route path="account" element={<Account />} />
+        <Route path="admin" element={<RequireAdmin><AdminOverview /></RequireAdmin>} />
+        <Route path="admin/users" element={<RequireAdmin><AdminUsers /></RequireAdmin>} />
+        <Route path="admin/scans" element={<RequireAdmin><AdminScans /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

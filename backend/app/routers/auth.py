@@ -11,6 +11,12 @@ from ..security import create_token, get_current_user, hash_password, public_use
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def check_password(v):
+    if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
+        raise ValueError("Password must contain at least one letter and one number")
+    return v
+
+
 class RegisterIn(BaseModel):
     name: str = Field(min_length=2, max_length=60)
     email: EmailStr
@@ -27,9 +33,7 @@ class RegisterIn(BaseModel):
     @field_validator("password")
     @classmethod
     def strong_password(cls, v):
-        if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
-            raise ValueError("Password must contain at least one letter and one number")
-        return v
+        return check_password(v)
 
 
 class LoginIn(BaseModel):
@@ -39,6 +43,16 @@ class LoginIn(BaseModel):
 
 class ProfileIn(BaseModel):
     name: str = Field(min_length=2, max_length=60)
+
+
+class PasswordIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=72)
+    new_password: str = Field(min_length=8, max_length=72)
+
+    @field_validator("new_password")
+    @classmethod
+    def strong_password(cls, v):
+        return check_password(v)
 
 
 @router.post("/register", status_code=201)
@@ -51,7 +65,10 @@ def register(body: RegisterIn):
         "name": body.name,
         "email": email,
         "password_hash": hash_password(body.password),
+        "role": "user",
+        "active": True,
         "created_at": dt.datetime.now(dt.timezone.utc),
+        "last_login": dt.datetime.now(dt.timezone.utc),
         "identity": None,
     }
     try:
@@ -66,6 +83,8 @@ def login(body: LoginIn):
     user = get_db().users.find_one({"email": body.email.lower()})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Incorrect email or password.")
+    if not user.get("active", True):
+        raise HTTPException(403, "This account has been disabled. Contact the administrator.")
     get_db().users.update_one({"_id": user["_id"]}, {"$set": {"last_login": dt.datetime.now(dt.timezone.utc)}})
     return {"token": create_token(str(user["_id"])), "user": public_user(user)}
 
@@ -81,3 +100,11 @@ def update_me(body: ProfileIn, user=Depends(get_current_user)):
     get_db().users.update_one({"_id": user["_id"]}, {"$set": {"name": name}})
     user["name"] = name
     return public_user(user)
+
+
+@router.post("/change-password")
+def change_password(body: PasswordIn, user=Depends(get_current_user)):
+    if not verify_password(body.current_password, user["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect.")
+    get_db().users.update_one({"_id": user["_id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
+    return {"changed": True}

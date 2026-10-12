@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react';
 import { api, uploadForm } from '../api';
 import FileDrop from '../components/FileDrop';
+import Icon from '../components/Icon';
 import ScanResult from '../components/ScanResult';
+import { Empty, Notice } from '../components/ui';
 import { bytes } from '../format';
 
 const TABS = [
-  ['image', 'Image'],
-  ['audio', 'Audio'],
-  ['video', 'Video'],
+  ['image', 'Image', 'image'],
+  ['audio', 'Audio', 'audio'],
+  ['video', 'Video', 'video'],
 ];
+
+const STAGES = ['Uploading file', 'Reading metadata', 'Locating faces', 'Running neural classifier', 'Checking your identity'];
 
 export default function NewScan() {
   const [tab, setTab] = useState('image');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState(0);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
@@ -24,6 +29,14 @@ export default function NewScan() {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  // Walk through the pipeline stages while the request is running.
+  useEffect(() => {
+    if (!busy) return undefined;
+    setStage(0);
+    const id = setInterval(() => setStage((s) => Math.min(s + 1, STAGES.length - 1)), 420);
+    return () => clearInterval(id);
+  }, [busy]);
 
   const choose = (f) => {
     setFile(f);
@@ -42,7 +55,12 @@ export default function NewScan() {
     setBusy(true);
     setError('');
     try {
-      setResult(await api('/api/scans/image', { method: 'POST', form: uploadForm(file) }));
+      const started = Date.now();
+      const scan = await api('/api/scans/image', { method: 'POST', form: uploadForm(file) });
+      // Keep the scanning animation on screen long enough to be readable.
+      const wait = Math.max(0, 1400 - (Date.now() - started));
+      await new Promise((r) => setTimeout(r, wait));
+      setResult(scan);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -59,62 +77,81 @@ export default function NewScan() {
         </div>
       </div>
 
-      <div className="tabs">
-        {TABS.map(([key, label]) => (
-          <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
-            {label}
-            {key !== 'image' && <span className="badge badge-plain" style={{ marginLeft: '.4rem' }}>Planned</span>}
+      <div className="tabs" role="tablist">
+        {TABS.map(([key, label, icon]) => (
+          <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
+            <Icon name={icon} /> {label}
+            {key !== 'image' && <span className="badge badge-plain">Planned</span>}
           </button>
         ))}
       </div>
 
       {tab !== 'image' ? (
-        <div className="panel panel-pad">
-          <h2>{tab === 'audio' ? 'Audio' : 'Video'} analysis is not available yet</h2>
-          <p className="muted" style={{ maxWidth: 640 }}>
-            {tab === 'audio'
-              ? 'Voice-clone detection using mel-spectrogram features is scheduled for the next release. It will check uploaded recordings against your enrolled voice sample.'
-              : 'Frame-level face-swap detection is scheduled for the next release. Each sampled frame will go through the same face model used for images, with a temporal consistency check across frames.'}
-          </p>
-          <p className="muted">Image scanning is fully available in the meantime.</p>
+        <div className="panel">
+          <Empty icon={tab} title={`${tab === 'audio' ? 'Audio' : 'Video'} analysis is coming in the next phase`}>
+            <p style={{ maxWidth: 520, margin: '.3rem auto 0' }}>
+              {tab === 'audio'
+                ? 'Voice-clone detection using mel-spectrogram features will check recordings for synthetic speech.'
+                : 'Frame-level face-swap detection will run every sampled frame through the face model, with a consistency check across frames.'}
+            </p>
+            <button className="btn btn-sm" style={{ marginTop: '1rem' }} onClick={() => setTab('image')}>Scan an image instead</button>
+          </Empty>
         </div>
       ) : (
         <div className="grid-scan">
           <div className="panel panel-pad">
-            <h2>Image</h2>
             {!file ? (
               <FileDrop onFile={choose} />
             ) : (
               <>
-                <img className="preview" src={preview} alt="Selected upload" />
-                <div className="file-line">
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {file.name} <span className="muted">({bytes(file.size)})</span>
-                  </span>
-                  <button className="btn-link" onClick={reset} disabled={busy}>Choose another</button>
+                <div className={`preview-box ${busy ? 'scanning' : ''}`}>
+                  <img src={preview} alt="Selected upload" />
+                  {busy && (
+                    <>
+                      <div className="corners"><span /><span /><span /><span /></div>
+                      <div className="scan-status"><span className="spinner" /> {STAGES[stage]}</div>
+                    </>
+                  )}
                 </div>
-                {!result && (
-                  <button className="btn btn-primary" style={{ width: '100%' }} onClick={analyze} disabled={busy}>
-                    {busy ? (<><span className="spinner" /> Analysing...</>) : 'Analyse image'}
+                <div className="file-line">
+                  <span className="name">{file.name} <span className="muted">&middot; {bytes(file.size)}</span></span>
+                  <button className="btn-link" onClick={reset} disabled={busy}>Change</button>
+                </div>
+                {!result ? (
+                  <button className="btn btn-primary btn-lg btn-block" onClick={analyze} disabled={busy}>
+                    {busy ? <><span className="spinner" /> Analysing</> : <><Icon name="scan" /> Analyse image</>}
                   </button>
-                )}
-                {result && (
-                  <button className="btn" style={{ width: '100%' }} onClick={reset}>Scan another image</button>
+                ) : (
+                  <button className="btn btn-lg btn-block" onClick={reset}><Icon name="upload" /> Scan another image</button>
                 )}
               </>
             )}
-            {error && <div className="notice notice-error" style={{ marginTop: '1rem' }}>{error}</div>}
+            {error && <div style={{ marginTop: '1rem' }}><Notice tone="error">{error}</Notice></div>}
             <p className="hint" style={{ marginTop: '1rem' }}>
-              Works best on photos where a face is clearly visible. Uploaded files are deleted after analysis; only a
-              small thumbnail and the result are kept in your history.
+              Works best on photos where a face is clearly visible. The original file is deleted after analysis.
             </p>
           </div>
 
           <div>
             {result ? (
               <ScanResult scan={result} />
+            ) : busy ? (
+              <div className="panel panel-pad">
+                <h3 className="section-title">Analysis in progress</h3>
+                <ul className="progress-steps">
+                  {STAGES.map((s, i) => (
+                    <li key={s} className={i < stage ? 'done' : i === stage ? 'now' : ''}>
+                      <i>{i < stage && <Icon name="check" />}</i> {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
-              <div className="panel empty">The result will appear here after analysis.</div>
+              <div className="panel">
+                <Empty icon="shieldCheck" title="No result yet">
+                  Choose an image and run the analysis. The verdict, evidence and file details will appear here.
+                </Empty>
+              </div>
             )}
           </div>
         </div>

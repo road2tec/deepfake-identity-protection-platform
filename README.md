@@ -1,4 +1,4 @@
-# Deepfake Detection and Digital Identity Protection Platform
+﻿# Sentinel ID - Deepfake Detection and Digital Identity Protection Platform
 
 A web platform that checks whether a photo was generated or altered by AI, and tells you when
 **your own face** shows up in manipulated media.
@@ -14,6 +14,8 @@ modules work end to end, and audio and video are scheduled for the next phase.
 | Protected identity: enrol your face, auto-check every scan | Done |
 | Identity misuse alerts | Done |
 | Scan history, scan detail, statistics | Done |
+| Admin panel: platform statistics, user management, all scans, model status | Done |
+| Responsive UI (desktop, tablet, mobile) | Done |
 | Audio deepfake (voice clone) detection | Planned |
 | Video deepfake (face swap) detection | Planned |
 
@@ -51,7 +53,7 @@ were trained on other kinds of fakes and do not transfer to GAN faces, so the pr
 ## Project layout
 
 ```
-backend/        FastAPI app (app/main.py), routers for auth, scans, identity and alerts
+backend/        FastAPI app (app/main.py), routers for auth, scans, identity, alerts and admin
 frontend/       React single-page app
 ml/             Dataset download, training and evaluation scripts
 models/         Trained image model + OpenCV face detection / recognition models
@@ -81,6 +83,24 @@ On Windows you can also double-click `start-backend.bat` and `start-frontend.bat
 Open http://localhost:5173, create an account, then use **New scan** to analyse an image. Use
 **Protected identity** to enrol a photo of yourself.
 
+## Admin panel
+
+An administrator account is created automatically the first time the backend starts, using the values in
+`backend/.env`:
+
+| Field | Default |
+|---|---|
+| Email | `admin@ddip.in` |
+| Password | `Admin@12345` |
+
+Change the password from **Account** after the first login. Signed in as admin, the sidebar shows an
+**Administration** section:
+
+- **Platform overview:** users, scans, fake rate, scans per day chart, verdict split, risk levels, model accuracy
+  and confusion matrix, system health, latest activity, and a button to reload a newly trained model.
+- **Users:** search, promote or demote admins, disable or enable accounts, delete users with their data.
+- **All scans:** every scan from every user, filterable by verdict.
+
 ## Retraining the image model
 
 ```bash
@@ -102,6 +122,11 @@ python ml/evaluate_pipeline.py --n 1000         # end-to-end check through the A
 | DELETE | `/api/scans/{id}` | Delete a scan |
 | GET / POST / DELETE | `/api/identity` | View, enrol or remove protected face |
 | GET | `/api/alerts` | Identity misuse alerts |
+| POST | `/api/auth/change-password` | Change own password |
+| GET | `/api/admin/overview` | Admin: platform statistics |
+| GET / PATCH / DELETE | `/api/admin/users`, `/api/admin/users/{id}` | Admin: list, update role/status, delete users |
+| GET / DELETE | `/api/admin/scans`, `/api/admin/scans/{id}` | Admin: all scans |
+| POST | `/api/admin/model/reload` | Admin: load a newly trained model |
 | GET | `/api/health` | Service, database and model status |
 
 ## Limitations

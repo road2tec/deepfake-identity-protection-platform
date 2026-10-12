@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
+import Icon from './Icon';
+import { Notice } from './ui';
 
 export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/bmp';
 
-export default function FileDrop({ onFile, accept = IMAGE_ACCEPT, maxMb = 15, label = 'Drop an image here or click to choose' }) {
+export default function FileDrop({ onFile, accept = IMAGE_ACCEPT, maxMb = 15, label = 'Drop an image here, or browse' }) {
   const input = useRef(null);
   const [over, setOver] = useState(false);
   const [error, setError] = useState('');
@@ -40,8 +42,9 @@ export default function FileDrop({ onFile, accept = IMAGE_ACCEPT, maxMb = 15, la
           take(e.dataTransfer.files[0]);
         }}
       >
+        <div className="drop-icon"><Icon name="upload" /></div>
         <p><strong>{label}</strong></p>
-        <p className="muted" style={{ fontSize: '.85rem' }}>JPG, PNG, WEBP or BMP &middot; up to {maxMb} MB</p>
+        <p className="muted" style={{ fontSize: '.83rem' }}>JPG, PNG, WEBP or BMP &middot; up to {maxMb} MB</p>
         <input
           ref={input}
           type="file"
@@ -53,7 +56,7 @@ export default function FileDrop({ onFile, accept = IMAGE_ACCEPT, maxMb = 15, la
           }}
         />
       </div>
-      {error && <div className="notice notice-error" style={{ marginTop: '.75rem' }}>{error}</div>}
+      {error && <div style={{ marginTop: '.85rem' }}><Notice tone="error">{error}</Notice></div>}
     </>
   );
 }

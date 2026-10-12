@@ -55,7 +55,13 @@ export const useAuth = () => useContext(AuthContext);
 export function RequireAuth({ children }) {
   const { user, ready } = useAuth();
   const location = useLocation();
-  if (!ready) return <div className="empty">Loading...</div>;
+  if (!ready) return <div className="empty"><span className="spinner" /></div>;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  return children;
+}
+
+export function RequireAdmin({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/app" replace />;
   return children;
 }

@@ -41,6 +41,14 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> d
         raise unauthorized
     if user is None:
         raise unauthorized
+    if not user.get("active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
+    return user
+
+
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required.")
     return user
 
 
@@ -50,6 +58,7 @@ def public_user(user: dict) -> dict:
         "id": str(user["_id"]),
         "name": user["name"],
         "email": user["email"],
+        "role": user.get("role", "user"),
         "created_at": user["created_at"].isoformat(),
         "identity_enrolled": bool(identity),
     }

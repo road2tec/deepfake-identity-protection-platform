@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import Icon from '../components/Icon';
+import { Empty, Notice, SkeletonRows, useUI } from '../components/ui';
 import { dateTime } from '../format';
 
 export default function Alerts() {
+  const { notify } = useUI();
   const [items, setItems] = useState(null);
   const [error, setError] = useState('');
 
@@ -19,6 +22,7 @@ export default function Alerts() {
 
   const markAll = async () => {
     await api('/api/alerts/read-all', { method: 'POST' });
+    notify('All alerts marked as read');
     load();
   };
 
@@ -31,29 +35,30 @@ export default function Alerts() {
           <h1>Alerts</h1>
           <p>Raised when your protected face is found in an image classified as fake.</p>
         </div>
-        {unread > 0 && <button className="btn" onClick={markAll}>Mark all as read</button>}
+        {unread > 0 && (
+          <div className="actions"><button className="btn" onClick={markAll}><Icon name="check" /> Mark all as read</button></div>
+        )}
       </div>
-      {error && <div className="notice notice-error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="panel">
         {!items ? (
-          <div className="empty">Loading...</div>
+          <SkeletonRows rows={3} />
         ) : !items.length ? (
-          <div className="empty">No alerts. Nothing suspicious involving your face has been found.</div>
+          <Empty icon="shieldCheck" title="All clear">Nothing suspicious involving your face has been found.</Empty>
         ) : (
-          items.map((a) => (
-            <div key={a.id} className={`alert-row ${a.read ? '' : 'unread'}`}>
-              <div>
+          items.map((a, i) => (
+            <div key={a.id} className={`alert-row ${a.read ? '' : 'unread'}`} style={{ animationDelay: `${i * 40}ms` }}>
+              <span className="a-ico"><Icon name={a.read ? 'bell' : 'alert'} /></span>
+              <div className="a-body">
                 <strong>{a.title}</strong>
-                <p style={{ margin: '.2rem 0' }}>{a.message}</p>
+                <p>{a.message}</p>
                 <small>
-                  {dateTime(a.created_at)} &middot; <Link to={`/app/history/${a.scan_id}`}>Open scan</Link>
+                  {dateTime(a.created_at)} &middot; <Link to={`/app/history/${a.scan_id}`}>Open scan report</Link>
                 </small>
               </div>
-              <div>
-                {!a.read && (
-                  <button className="btn btn-sm" onClick={() => markRead(a.id)}>Mark read</button>
-                )}
-              </div>
+              {!a.read && (
+                <button className="btn btn-sm" onClick={() => markRead(a.id)}>Mark read</button>
+              )}
             </div>
           ))
         )}

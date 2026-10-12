@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import Icon from '../components/Icon';
 import ScanResult from '../components/ScanResult';
+import { Notice, SkeletonRows, useUI } from '../components/ui';
 
 export default function ScanDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { confirm, notify } = useUI();
   const [scan, setScan] = useState(null);
   const [error, setError] = useState('');
 
@@ -14,26 +17,35 @@ export default function ScanDetail() {
   }, [id]);
 
   const remove = async () => {
-    if (!window.confirm('Delete this scan?')) return;
+    const ok = await confirm({ title: 'Delete this scan?', message: 'This removes the result and any linked alert.', confirmText: 'Delete', danger: true });
+    if (!ok) return;
     await api(`/api/scans/${id}`, { method: 'DELETE' });
+    notify('Scan deleted');
     navigate('/app/history');
   };
 
   return (
     <>
       <div className="page-head">
-        <div>
-          <p><Link to="/app/history">Scan history</Link> /</p>
-          <h1>{scan ? scan.filename : 'Scan'}</h1>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ marginBottom: '.35rem' }}>
+            <Link to="/app/history"><Icon name="arrowLeft" size={14} /> Scan history</Link>
+          </p>
+          <h1 style={{ wordBreak: 'break-word' }}>{scan ? scan.filename : 'Scan report'}</h1>
         </div>
-        {scan && <button className="btn btn-danger" onClick={remove}>Delete scan</button>}
+        {scan && (
+          <div className="actions">
+            <button className="btn btn-danger" onClick={remove}><Icon name="trash" /> Delete scan</button>
+          </div>
+        )}
       </div>
-      {error && <div className="notice notice-error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {!scan && !error && <div className="panel"><SkeletonRows /></div>}
       {scan && (
         <div className="grid-scan">
           <div className="panel panel-pad">
-            <img className="preview" src={scan.thumbnail} alt="Scanned file thumbnail" />
-            <p className="hint" style={{ marginTop: '.6rem' }}>Stored thumbnail. The original upload was deleted after analysis.</p>
+            <div className="preview-box"><img src={scan.thumbnail} alt="Scanned file thumbnail" /></div>
+            <p className="hint" style={{ marginTop: '.7rem' }}>Stored thumbnail. The original upload was deleted after analysis.</p>
           </div>
           <ScanResult scan={scan} />
         </div>

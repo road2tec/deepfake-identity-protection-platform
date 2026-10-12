@@ -1,24 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
-import { ScanTable } from './Overview';
+import Icon from '../components/Icon';
+import ScanTable from '../components/ScanTable';
+import { Notice, SkeletonRows, useUI } from '../components/ui';
 
 const PAGE = 15;
+const FILTERS = [['', 'All'], ['FAKE', 'Fake'], ['REAL', 'Authentic']];
+
+export function Pager({ page, total, size, onPage }) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (total <= size) return null;
+  return (
+    <div className="pager">
+      <span>Page {page + 1} of {pages} &middot; {total} items</span>
+      <span style={{ display: 'flex', gap: '.4rem' }}>
+        <button className="btn btn-sm" disabled={page === 0} onClick={() => onPage(page - 1)}><Icon name="arrowLeft" /> Prev</button>
+        <button className="btn btn-sm" disabled={page + 1 >= pages} onClick={() => onPage(page + 1)}>Next <Icon name="arrowRight" /></button>
+      </span>
+    </div>
+  );
+}
 
 export default function History() {
+  const { confirm, notify } = useUI();
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(0);
-  const [data, setData] = useState({ total: 0, items: [] });
+  const [data, setData] = useState(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    setLoading(true);
     const q = new URLSearchParams({ limit: PAGE, skip: page * PAGE });
     if (filter) q.set('label', filter);
-    api(`/api/scans?${q}`)
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    api(`/api/scans?${q}`).then(setData).catch((e) => setError(e.message));
   }, [filter, page]);
 
   useEffect(() => {
@@ -26,52 +40,44 @@ export default function History() {
   }, [load]);
 
   const remove = async (scan) => {
-    if (!window.confirm(`Delete the scan of "${scan.filename}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete this scan?',
+      message: `"${scan.filename}" and any alert linked to it will be removed from your history.`,
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api(`/api/scans/${scan.id}`, { method: 'DELETE' });
+      notify('Scan deleted');
       load();
     } catch (e) {
-      setError(e.message);
+      notify(e.message, 'error');
     }
   };
-
-  const pages = Math.max(1, Math.ceil(data.total / PAGE));
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Scan history</h1>
-          <p>{data.total} scan{data.total === 1 ? '' : 's'}</p>
+          <p>{data ? `${data.total} scan${data.total === 1 ? '' : 's'}` : 'Loading'}</p>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.9rem' }}>
-          Show
-          <select
-            value={filter}
-            onChange={(e) => {
-              setFilter(e.target.value);
-              setPage(0);
-            }}
-            style={{ width: 'auto' }}
-          >
-            <option value="">All results</option>
-            <option value="FAKE">Fake only</option>
-            <option value="REAL">Authentic only</option>
-          </select>
-        </label>
+        <div className="actions">
+          <Link to="/app/scan" className="btn btn-primary"><Icon name="scan" /> New scan</Link>
+        </div>
       </div>
-      {error && <div className="notice notice-error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="panel">
-        {loading && !data.items.length ? <div className="empty">Loading...</div> : <ScanTable items={data.items} onDelete={remove} />}
-        {data.total > PAGE && (
-          <div className="pager">
-            <span>Page {page + 1} of {pages}</span>
-            <span style={{ display: 'flex', gap: '.4rem' }}>
-              <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
-              <button className="btn btn-sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Next</button>
-            </span>
+        <div className="toolbar">
+          <div className="seg" role="group" aria-label="Filter by result">
+            {FILTERS.map(([v, l]) => (
+              <button key={l} className={filter === v ? 'active' : ''} onClick={() => { setFilter(v); setPage(0); }}>{l}</button>
+            ))}
           </div>
-        )}
+        </div>
+        {data ? <ScanTable items={data.items} onDelete={remove} /> : <SkeletonRows rows={5} />}
+        {data && <Pager page={page} total={data.total} size={PAGE} onPage={setPage} />}
       </div>
     </>
   );

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
-import Brand from '../components/Brand';
+import AuthLayout, { PasswordInput } from '../components/AuthLayout';
+import Icon from '../components/Icon';
+import { Notice } from '../components/ui';
 
 export default function Login() {
   const { user, signIn } = useAuth();
@@ -16,6 +18,10 @@ export default function Login() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.');
+      return;
+    }
     setError('');
     setBusy(true);
     try {
@@ -29,39 +35,29 @@ export default function Login() {
   };
 
   return (
-    <>
-      <header className="public-header">
-        <div className="inner"><Brand /></div>
-      </header>
-      <main className="public-main">
-        <div className="auth-wrap">
-          <h1>Sign in</h1>
-          <p className="muted">Use the email and password you registered with.</p>
-          <form className="panel" onSubmit={submit} noValidate>
-            {error && <div className="notice notice-error">{error}</div>}
-            <label className="field">
-              <span>Email</span>
-              <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label className="field">
-              <span>Password</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </label>
-            <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy || !email || !password}>
-              {busy ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
-          <p className="auth-foot">
-            New here? <Link to="/register">Create an account</Link>
-          </p>
-        </div>
-      </main>
-    </>
+    <AuthLayout>
+      <h1>Welcome back</h1>
+      <p>Sign in to see your scans, alerts and protected identity.</p>
+      <form onSubmit={submit} noValidate>
+        {error && <Notice tone="error">{error}</Notice>}
+        <label className="field" htmlFor="email">
+          <span>Email</span>
+          <div className="input-wrap">
+            <Icon name="mail" />
+            <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </label>
+        <label className="field" htmlFor="password">
+          <span>Password</span>
+          <PasswordInput id="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+          {busy ? <><span className="spinner" /> Signing in</> : <>Sign in <Icon name="arrowRight" /></>}
+        </button>
+      </form>
+      <p className="auth-foot">
+        New to Sentinel ID? <Link to="/register">Create an account</Link>
+      </p>
+    </AuthLayout>
   );
 }

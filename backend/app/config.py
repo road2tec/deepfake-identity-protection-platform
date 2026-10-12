@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 from dotenv import load_dotenv
 
@@ -17,6 +17,11 @@ class Settings:
     cors_origins = [o.strip() for o in os.getenv(
         "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
     max_upload_mb = int(os.getenv("MAX_UPLOAD_MB", "15"))
+
+    # Admin account created on first start (change the password after logging in)
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@ddip.in").strip().lower()
+    admin_password = os.getenv("ADMIN_PASSWORD", "Admin@12345")
+    admin_name = os.getenv("ADMIN_NAME", "Platform Admin")
 
     models_dir = os.path.join(PROJECT_DIR, "models")
     image_model_path = os.path.join(models_dir, "image_detector", "efficientnet_b0_faces.pt")

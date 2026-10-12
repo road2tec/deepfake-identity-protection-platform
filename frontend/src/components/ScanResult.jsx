@@ -1,70 +1,90 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bytes, dateTime, pct, RISK_TEXT } from '../format';
+import Icon from './Icon';
+import { CountUp, Notice } from './ui';
 
-const STATUS = { pass: ['PASS', 's-pass'], fail: ['FLAG', 's-fail'], info: ['INFO', 's-info'] };
+const STATUS_ICON = { pass: 'check', fail: 'x', info: 'info' };
+
+/** Half-circle gauge for the probability that the image is synthetic. */
+export function Gauge({ value, fake }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(value));
+    return () => cancelAnimationFrame(id);
+  }, [value]);
+  const length = Math.PI * 50;
+  return (
+    <div className="gauge" role="img" aria-label={`${pct(value)} probability of synthesis`}>
+      <svg viewBox="0 0 120 68">
+        <path className="track" d="M10 62 A50 50 0 0 1 110 62" />
+        <path
+          className="arc"
+          d="M10 62 A50 50 0 0 1 110 62"
+          stroke={fake ? 'var(--bad)' : 'var(--ok)'}
+          strokeDasharray={length}
+          strokeDashoffset={length * (1 - shown)}
+        />
+      </svg>
+      <div className="val"><CountUp value={value * 100} format={(v) => `${v.toFixed(1)}%`} /></div>
+      <div className="cap">synthetic</div>
+    </div>
+  );
+}
 
 export default function ScanResult({ scan }) {
   const fake = scan.label === 'FAKE';
   const id = scan.identity_match;
 
   return (
-    <div className="panel">
+    <div className="panel" style={{ overflow: 'hidden', animation: 'pop .4s var(--ease) both' }}>
       <div className={`verdict ${fake ? 'fake' : 'real'}`}>
+        <Gauge value={scan.fake_probability} fake={fake} />
         <div>
-          <div className="word">{fake ? 'LIKELY FAKE' : 'LIKELY AUTHENTIC'}</div>
-          <div className="muted">{RISK_TEXT[scan.risk_level]}</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{pct(scan.confidence)}</div>
-          <div className="muted" style={{ fontSize: '.8rem' }}>confidence</div>
+          <span className="eyebrow" style={{ color: 'var(--muted)', marginBottom: '.3rem' }}>Verdict</span>
+          <div className="label">{fake ? 'Likely manipulated' : 'Likely authentic'}</div>
+          <p>
+            {RISK_TEXT[scan.risk_level]} &middot; {pct(scan.confidence)} confidence &middot; {scan.risk_level} risk
+          </p>
         </div>
       </div>
 
       <div className="panel-pad stack">
-        <div>
-          <h3>Probability the image is synthetic</h3>
-          <div className={`meter ${fake ? 'fake' : ''}`}>
-            <div style={{ width: pct(scan.fake_probability) }} />
-          </div>
-          <div className="meter-scale">
-            <span>0% authentic</span>
-            <span>{pct(scan.fake_probability)}</span>
-            <span>100% synthetic</span>
-          </div>
-        </div>
-
         {id && id.matched && (
-          <div className={`notice ${fake ? 'notice-error' : 'notice-info'}`}>
+          <Notice tone={fake ? 'error' : 'info'}>
             {fake ? (
               <>
-                <strong>Your protected face appears in this manipulated image.</strong> An alert has been added to your{' '}
-                <Link to="/app/alerts">alerts</Link>.
+                <strong>Your protected face appears in this manipulated image.</strong> An alert was added to{' '}
+                <Link to="/app/alerts">your alerts</Link>.
               </>
             ) : (
               <>Your protected face appears in this image. No manipulation was detected.</>
             )}
-          </div>
+          </Notice>
         )}
 
         <div>
-          <h3>Checks performed</h3>
-          {scan.signals.map((s, i) => (
-            <div className="signal" key={i}>
-              <span className={STATUS[s.status][1]}>{STATUS[s.status][0]}</span>
-              <span>
-                <strong>{s.check}.</strong> {s.detail}
-              </span>
-            </div>
-          ))}
+          <h3 className="section-title">Checks performed</h3>
+          <div className="checks">
+            {scan.signals.map((s, i) => (
+              <div className="check" key={i} style={{ animationDelay: `${0.15 + i * 0.08}s` }}>
+                <span className={`check-ico ${s.status}`}><Icon name={STATUS_ICON[s.status]} /></span>
+                <div>
+                  <b>{s.check}</b>
+                  <span>{s.detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div>
-          <h3>File details</h3>
+          <h3 className="section-title">File details</h3>
           <table className="kv">
             <tbody>
               <tr><th>File name</th><td>{scan.filename}</td></tr>
               <tr><th>Size</th><td>{bytes(scan.size_bytes)}</td></tr>
-              <tr><th>Dimensions</th><td>{scan.width} x {scan.height} px</td></tr>
+              <tr><th>Dimensions</th><td>{scan.width} &times; {scan.height} px</td></tr>
               <tr><th>Faces detected</th><td>{scan.faces_detected}</td></tr>
               <tr><th>SHA-256</th><td className="mono">{scan.sha256}</td></tr>
               <tr><th>Scanned</th><td>{dateTime(scan.created_at)}</td></tr>

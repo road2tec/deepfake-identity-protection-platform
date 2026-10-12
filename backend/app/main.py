@@ -1,4 +1,4 @@
-import threading
+﻿import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .db import close_db, get_db, init_indexes
+from .db import close_db, ensure_admin, get_db, init_indexes
 from .detectors.image_detector import detector
-from .routers import alerts, auth, identity, scans
+from .routers import admin, alerts, auth, identity, scans
 
 
 def _warm_up():
@@ -24,6 +24,7 @@ def _warm_up():
 async def lifespan(app: FastAPI):
     try:
         init_indexes()
+        ensure_admin()
     except Exception as exc:
         print(f"WARNING: could not reach MongoDB at {settings.mongodb_url}: {exc}")
     threading.Thread(target=_warm_up, daemon=True).start()
@@ -58,6 +59,7 @@ app.include_router(auth.router)
 app.include_router(scans.router)
 app.include_router(identity.router)
 app.include_router(alerts.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")

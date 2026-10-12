@@ -79,6 +79,13 @@ class ImageDetector:
                         self.metrics = json.load(fh)
         return self
 
+    def reload(self):
+        """Pick up a newly trained checkpoint without restarting the server."""
+        with self._lock:
+            self.model = None
+            self.metrics = None
+        return self.load()
+
     @torch.inference_mode()
     def fake_probability(self, image):
         self.load()
