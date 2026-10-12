@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.env
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.env
+
+# Training data / logs (downloaded separately, several GB)
+ml/data/
+ml/train_log.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

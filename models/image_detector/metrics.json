@@ -1,0 +1,23 @@
+{
+  "model": "EfficientNet-B0 (ImageNet init, fully fine-tuned)",
+  "dataset": "140k Real and Fake Faces - FFHQ real vs StyleGAN fake",
+  "input_size": 224,
+  "train_images": 640,
+  "val_images": 200,
+  "test_images": 200,
+  "epochs": 1,
+  "best_val_accuracy": 0.63,
+  "test_accuracy": 0.685,
+  "test_roc_auc": 0.7802,
+  "confusion_matrix": [
+    [
+      45,
+      55
+    ],
+    [
+      8,
+      92
+    ]
+  ],
+  "training_minutes": 1.6
+}
